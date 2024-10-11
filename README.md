@@ -104,5 +104,7 @@ The original template for this code was inspired by FujiwaraChoki. The approach,
 ## Disclaimer
 Using automation tools on LinkedIn can violate LinkedIn's terms of service. Use this bot responsibly, and understand the risks, including the possibility of your account being restricted or banned. This project is intended for educational purposes only.
 
+Please note that some parts of the code have been deliberately removed to prevent misuse. If you can figure out those parts, consider it a treat for you, but please use the script ethically.
+
 ## Author
 Pampati Dinesh Raj
