@@ -1,4 +1,5 @@
 import sys
+import random
 
 from utilities import *
 from selenium_firefox import *
@@ -7,6 +8,9 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.firefox.service import Service
 from selenium.webdriver.firefox.options import Options
 from webdriver_manager.firefox import GeckoDriverManager
+from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.support import expected_conditions as EC
+import time
 
 # Enter your search query or keywords here
 SEARCH_QUERY = "Restaurant owner"
@@ -24,7 +28,13 @@ N_SEARCH_RESULTS = 100
 
 # The message you want to send to the people
 # The only variable right now is {{name}}, which will be replaced by the person's name
-MESSAGE_WITH_NAME = "Hello {{name}}, I would love to connect with you! I hope you are having a great day."
+MESSAGE_WITH_NAME = (
+    "Hi {{name}},\n"
+    "Impressed by {{company_name}}'s innovation and eager to contribute as a Software Engineer. "
+    "I would love to connect and discuss how my skills and experience align with {{company_name}}'s goals.\n"
+    "Thank you,\n"
+    "Pampati Dinesh Raj"
+)
 MESSAGE_WITHOUT_NAME = "Hello, I would love to connect with you! I hope you are having a great day."
 
 # From which page to start getting people
@@ -32,10 +42,11 @@ CURRENT_PAGE = 1
 
 # IMPORTANT
 # Change this depending on your language
-CONTENT_OF_ADD_MESSAGE_BUTTON = "Nachricht hinzufügen"
-CONTENT_OF_SEND_BUTTON = "Senden"
-CONTENT_OF_MORE_BUTTON = "Mehr"
-CONTENT_OF_CONNECTION_BUTTON = "Vernetzen"
+CONTENT_OF_ADD_MESSAGE_BUTTON = "Add a note"
+CONTENT_OF_SEND_BUTTON = "Send"
+CONTENT_OF_MORE_BUTTON = "More"
+CONTENT_OF_CONNECTION_BUTTON = "Connect"
+# flag = False
 
 # ---- DON'T TOUCH ----
 PEOPLE = []
@@ -48,8 +59,16 @@ PERSON_SUBTITLE_CLASS = "entity-result__primary-subtitle"
 PERSON_SECONDARY_SUBTITLE_CLASS = "entity-result__secondary-subtitle"
 PERSON_SUMMARY_CLASS = "entity-result__summary"
 PERSON_ACTION_BUTTON = "entity-result__actions"
-ACTION_CONTAINER = "IZLqPHsLPvmtnxTRikvwkBUVdnExLjJlPwssjbtQ" # Untested, might not work. Open an issue if it does not.
+
+# https://static.licdn.com/aero-v1/sc/h/3dwppu0c34e20ignenu8ihgt7
 MODAL_ACTION_BAR = "artdeco-modal__actionbar"
+
+def get_action_container_class_name():
+    ACTION_CONTAINER = input(colored("[?] Please enter the class name of the action container: ", "magenta"))
+    if not ACTION_CONTAINER:
+        print(colored("[!] No class name entered. Exiting...", "red"))
+        sys.exit(1)
+    return ACTION_CONTAINER
 
 def main():
     """
@@ -60,6 +79,13 @@ def main():
     global SEARCH_QUERY
     global CURRENT_PAGE
     global N_SEARCH_RESULTS
+    
+    # Initialize the flag variable
+    flag = False
+    
+    ACTION_CONTAINER = None
+
+
 
     # Print Art
     print_ascii_art()
@@ -127,19 +153,23 @@ def main():
     driver = webdriver.Firefox(service=service, options=options)
 
     if not temp_people:
+        
+        
+        url = str(input(colored("[?] Please enter the LinkedIn URL you want to scrape: ", "magenta")))
+        str_url = url
         # Go to LinkedIn
-        driver.get(f"{BASE_LINKEDIN_URL}/search/results/people/?geoUrn={GEO_URN}&keywords={SEARCH_QUERY}&origin=SWITCH_SEARCH_VERTICAL&sid=p%2CR")
+        driver.get(url)
 
         # Set full screen
         driver.maximize_window()
 
-        # Wait for page load
-        wait(4)
+        time.sleep(4)
+        # wait(4)
 
         # Scroll to bottom of page
         scroll_to_bottom(driver)
-
-        wait(2)
+        time.sleep(random.randint(2, 4))
+        # wait(2)
 
         # Get pagination list
         pagination_list = driver.find_element(By.CLASS_NAME, PAGINATION_LIST_CLASS)
@@ -155,7 +185,8 @@ def main():
             print(colored(f"[+] Navigating to page {CURRENT_PAGE}...", "yellow"))
 
             # Go to Page URL
-            driver.get(f"{BASE_LINKEDIN_URL}/search/results/people/?geoUrn={GEO_URN}&keywords={SEARCH_QUERY}&origin=SWITCH_SEARCH_VERTICAL&sid=p%2CR&page={CURRENT_PAGE}")
+            driver.get(str_url+"&page="+str(CURRENT_PAGE))
+            # driver.get(f"{BASE_LINKEDIN_URL}/search/results/people/?geoUrn={GEO_URN}&keywords={SEARCH_QUERY}&origin=SWITCH_SEARCH_VERTICAL&sid=p%2CR&page={CURRENT_PAGE}")
 
             # Get results list
             results_list = driver.find_element(By.CLASS_NAME, RESULTS_LIST_CLASS)
@@ -243,67 +274,137 @@ def main():
         driver.get(person["profile_url"])
 
         # Wait for page load
-        wait(2)
+        time.sleep(1)
 
+        # wait_time is random between 5 and 10 seconds
+        wait_time = random.randint(5, 10)
         # Get action container
-        action_container = driver.find_element(By.CLASS_NAME, ACTION_CONTAINER)
+        wait = WebDriverWait(driver, wait_time)
+        # action_container = wait.until(EC.presence_of_element_located((By.CLASS_NAME, ACTION_CONTAINER)))
+        
+        # wait for the driver to load the page
+        time.sleep(1)
+        
+        # Get all the buttons on the current profile URL page
+        all_buttons = driver.find_elements(By.TAG_NAME, "button")
+        
+        try:
+            # get the company name of the person button[aria-label^="Current company:"]
+            company_button = wait.until(EC.presence_of_element_located((By.CSS_SELECTOR, "button[aria-label^='Current company:']")))
+            full_label = company_button.get_attribute("aria-label")
+            company_name = full_label.split(": ")[1].split(".")[0]
+        except:
+            company_name = "Your Company"
+            print(colored(f"[!] Could not find the company name of {person['name']}.", "red"))
 
-        # Get all buttons
-        buttons = action_container.find_elements(By.TAG_NAME, "button")
+        More_button = None
+        Connect_button = None
+        Message_button = None
+        
+        connect_flag = False
+        message_flag = False
+        more_flag = False
+        skip = False
+        i = 0
+        
+        try:
+        # iterate over all buttons and only keep Connect button, Message button and More button also if there is a pending buton then skip this person
+            for button in all_buttons:
+                i += 1
+                # if(i > 20):
+                #     break
+                if "Pending" in button.text:
+                    print(colored(f"[!] {person['name']} is already in your connection list.", "red"),i)
+                    print(button.text, " ", button.get_attribute("aria-label"))
+                    skip = True
+                    break
+                elif "Connect" in button.text or "Message" in button.text or "More" in button.text:
+                    print(button.text, " ", button.get_attribute("aria-label"),i)
+                    if(connect_flag and message_flag and more_flag):
+                        break
+                    if "Connect" in button.text and not connect_flag:
+                        aria_name = button.get_attribute("aria-label")
+                        if person["name"] not in aria_name:
+                            print(colored(f"[!] {person['name']} is not the correct person.->{aria_name}", "red"))
+                            continue
+                        connect_flag = True
+                        Connect_button = button
+                    elif "Message" in button.text and not message_flag:
+                        message_flag = True
+                        Message_button = button
+                    elif "More" in button.text and not more_flag:
+                        more_flag = True
+                        More_button = button
+                    else:
+                        continue
+                else:
+                    continue
+        except:
+            print(colored("[!] Could not find the buttons on the current profile URL page.", "red"))
+            continue
+        
+        if skip:
+            continue  
+        
+        # put all of my buttons in a list called buttons
+        buttons = [Connect_button, Message_button, More_button]
+        
 
         # Iterate over buttons
-        for button in buttons:
-            # Check if button contains the text "Vernetzen"
+        for button in buttons:    
             try:
                 if CONTENT_OF_CONNECTION_BUTTON in button.find_element(By.TAG_NAME, "span").text:
                     # Click the button
                     button.click()
                     break
-            except:
-                continue
-        else:
-            # WARNING: This does not work yet
-            print(colored("[!] Could not find the connection button the conventional way.", "red"))
-
-            """
-            try:
-                # Get all buttons
-                buttons = action_container.find_elements(By.TAG_NAME, "button")
-
-                # Iterate over buttons
-                for button in buttons:
-                    # Check if button contains the text "Mehr"
+                else:
+                # WARNING: This does not work yet
+                    print(colored("[!] Could not find the connection button the conventional way.", "red"))
                     try:
-                        if CONTENT_OF_MORE_BUTTON in button.find_element(By.TAG_NAME, "span").text:
-                            # Click the button
-                            button.click()
-                            break
+                        # Iterate over buttons
+                        for button in buttons:
+                            # Check if button contains the text "Mehr"
+                            try:
+                                if CONTENT_OF_MORE_BUTTON in button.find_element(By.TAG_NAME, "span").text:
+                                    # Click the button
+                                    button.click()
+                                    break
+                                else :
+                                    continue
+                            except:
+                                continue
+                            
+                        # Wait for the dropdown menu to appear
+                        wait = WebDriverWait(driver, 10)
+                        # dropdown = wait.until(EC.presence_of_element_located((By.XPATH, f"//div[@class='{ACTION_CONTAINER}']//div[@class='artdeco-dropdown__content-inner']")))
+                        dropdown = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "artdeco-dropdown__content-inner")))
+                        # time.sleep(1)  # Give it a little more time to be usable
+
+                        # Debugging: Print inner HTML to check the content (Optional)
+                        # print(dropdown.get_attribute('innerHTML'))
+                        # Find the "Connect" option using the aria-label attribute
+                        connect_option = dropdown.find_element(
+                            By.XPATH,
+                            ".//div[@role='button' and contains(@aria-label, 'Invite') and .//span[text()='Connect']]"
+                        )
+                        
+                        # Click on the "Connect" option using JavaScript for more reliability
+                        driver.execute_script("arguments[0].click();", connect_option)
+                        print("Clicked on the 'Connect' option in the dropdown.")
+                        break
                     except:
                         continue
-
-                # artdeco-dropdown__content-inner
-                dropdown = driver.find_element(By.CLASS_NAME, "artdeco-dropdown__content-inner").find_element(By.TAG_NAME, "ul")
-
-                # Get all `span` elements
-                dropdown_items = dropdown.find_elements(By.TAG_NAME, "span")
-
-                for item in dropdown_items:
-                    if CONTENT_OF_CONNECTION_BUTTON in item.text:
-                        # Get parent `div` element
-                        parent = item.find_element(By.XPATH, "..")
-
-                        # Click the parent element
-                        parent.click()
-
-                        break
             except:
                 continue
-            """
+        
         try:
             # Get modal action bar
-            modal_action_bar = driver.find_element(By.CLASS_NAME, MODAL_ACTION_BAR)
+            # modal_action_bar = driver.find_element(By.CLASS_NAME, MODAL_ACTION_BAR)
+            wait = WebDriverWait(driver, 10)
+            modal_action_bar = wait.until(EC.presence_of_element_located((By.CLASS_NAME, MODAL_ACTION_BAR)))
 
             # Get all buttons
+            # buttons = wait.until(EC.presence_of_all_elements_located((By.XPATH, f"//div[@class='{MODAL_ACTION_BAR}']//button")))
             buttons = modal_action_bar.find_elements(By.TAG_NAME, "button")
 
             # Iterate over buttons
@@ -321,36 +422,30 @@ def main():
                 continue
 
             # Find custom message textarea, by ID
-            custom_message_textarea = driver.find_element(By.ID, "custom-message")
-
+            wait = WebDriverWait(driver, 10)
+            custom_message_textarea = wait.until(EC.presence_of_element_located((By.ID, "custom-message")))
+            
+        
             # Clear the textarea
             custom_message_textarea.clear()
 
             # Check if the person has a name
             if person["name"]:
-                # Send message with name
-                custom_message_textarea.send_keys(MESSAGE_WITH_NAME.replace("{{name}}", person["name"]))
+                # Send message with name and company name
+                message = MESSAGE_WITH_NAME.replace("{{name}}", person["name"]).replace("{{company_name}}", company_name)
+                custom_message_textarea.send_keys(message)
             else:
                 # Send message without name
                 custom_message_textarea.send_keys(MESSAGE_WITHOUT_NAME)
 
+
+            modal_action_bar = driver.find_element(By.CLASS_NAME, MODAL_ACTION_BAR)
             # Get all buttons
             buttons = modal_action_bar.find_elements(By.TAG_NAME, "button")
 
             # Iterate over buttons
             for button in buttons:
-                # Check if button contains the text "Senden"
-                try:
-                    if CONTENT_OF_SEND_BUTTON in button.find_element(By.TAG_NAME, "span").text:
-                        # Click the button
-                        if ASK_BEFORE_SENDING:
-                            input(colored("[?] Press any key to send the connection request...", "magenta"))
-                        button.click()
-                        wait(0.7)
-                        print(colored(f"[+] Sent {person['name']} a connection request.", "green"))
-                        break
-                except:
-                    continue
+            # SEND LOGIC
             else:
                 print(colored("[!] Could not find the send button.", "red"))
                 continue
