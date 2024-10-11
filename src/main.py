@@ -377,23 +377,9 @@ def main():
                         # Wait for the dropdown menu to appear
                         wait = WebDriverWait(driver, 10)
                         # dropdown = wait.until(EC.presence_of_element_located((By.XPATH, f"//div[@class='{ACTION_CONTAINER}']//div[@class='artdeco-dropdown__content-inner']")))
-                        dropdown = wait.until(EC.presence_of_element_located((By.CLASS_NAME, "artdeco-dropdown__content-inner")))
-                        # time.sleep(1)  # Give it a little more time to be usable
-
-                        # Debugging: Print inner HTML to check the content (Optional)
-                        # print(dropdown.get_attribute('innerHTML'))
-                        # Find the "Connect" option using the aria-label attribute
-                        connect_option = dropdown.find_element(
-                            By.XPATH,
-                            ".//div[@role='button' and contains(@aria-label, 'Invite') and .//span[text()='Connect']]"
-                        )
                         
-                        # Click on the "Connect" option using JavaScript for more reliability
-                        driver.execute_script("arguments[0].click();", connect_option)
-                        print("Clicked on the 'Connect' option in the dropdown.")
-                        break
-                    except:
-                        continue
+                    # Add logic for finding button if it's not found directly
+
             except:
                 continue
         
@@ -421,11 +407,9 @@ def main():
                 print(colored("[!] Could not find the add message button.", "red"))
                 continue
 
-            # Find custom message textarea, by ID
-            wait = WebDriverWait(driver, 10)
-            custom_message_textarea = wait.until(EC.presence_of_element_located((By.ID, "custom-message")))
-            
-        
+            # Add logic to Find custom message textarea, by ID
+
+
             # Clear the textarea
             custom_message_textarea.clear()
 
